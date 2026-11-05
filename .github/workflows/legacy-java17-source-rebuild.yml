@@ -41,7 +41,12 @@ jobs:
         run: |
           mkdir -p build/tools build/decompiled
           curl -fLSs --retry 3 -o build/tools/vineflower.jar https://repo.maven.apache.org/maven2/org/vineflower/vineflower/1.12.0/vineflower-1.12.0.jar
-          java -Xmx3G -jar build/tools/vineflower.jar build/original/Photonics-0.2.5.jar build/decompiled > build/decompile.log 2>&1
+          curl -fLSs --retry 3 -o build/tools/tiny-remapper.jar https://maven.fabricmc.net/net/fabricmc/tiny-remapper/0.10.4/tiny-remapper-0.10.4-fat.jar
+          curl -fLSs --retry 3 -o build/tools/yarn-v2.jar 'https://maven.fabricmc.net/net/fabricmc/yarn/1.20.1+build.10/yarn-1.20.1+build.10-v2.jar'
+          unzip -p build/tools/yarn-v2.jar mappings/mappings.tiny > build/tools/yarn.tiny
+          mkdir -p build/named
+          java -Xmx3G -jar build/tools/tiny-remapper.jar build/original/Photonics-0.2.5.jar build/named/Photonics-0.2.5-named.jar build/tools/yarn.tiny intermediary named
+          java -Xmx3G -jar build/tools/vineflower.jar build/named/Photonics-0.2.5-named.jar build/decompiled > build/decompile.log 2>&1
           python tools/prepare_legacy_source.py build/original/Photonics-0.2.5.jar build/decompiled .
 
       - name: Compile all reconstructed Java code for Java17 against 1.20.1 + Iris 1.7.6 + Sodium 0.5.13
