@@ -37,11 +37,7 @@ def main():
     print("Fixed missing UTF-8 VOX string return")
 
     ray = root / "Raytracer.java"
-    replace_once(
-        ray,
-        "catch (InterruptedException e) {\n                     throw new RuntimeException(ex);",
-        "catch (InterruptedException e) {\n                     throw new RuntimeException(e);"
-    )
+    replace_once(ray, "throw new RuntimeException(ex);", "throw new RuntimeException(e);")
 
     mixin = root / "mixin/ExtendedShaderMixin.java"
     replace_once(
