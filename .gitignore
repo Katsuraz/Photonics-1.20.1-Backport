@@ -1,0 +1,14 @@
+# Keep upstream binary JARs and decompiled implementation out of this public repository
+*.jar
+*.class
+build/
+.gradle/
+run/
+out/
+decompiled/
+upstream/
+*.log
+__pycache__/
+*.pyc
+.idea/
+.vscode/
