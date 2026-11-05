@@ -11,3 +11,5 @@ The full **Photonics 0.3.4 → Minecraft 1.20.1 / Iris 1.7.6** backport is not y
 ## Release gates
 
 The full port cannot be called working until its Java17 classes compile, mixins apply, Iris sees the expected shader hooks, and Minecraft 1.20.1 boots in a disposable copy of Homestead. The original Homestead profile remains unmodified.
+
+The first Java17 source-recompilation probe exposed a missing link to the Schematic and JOML classes. The reconstruction workflow now includes those dependencies; its next CI run must verify compilation before any class file can be called successfully ported.
