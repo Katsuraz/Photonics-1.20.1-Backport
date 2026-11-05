@@ -23,9 +23,9 @@ def main():
     source = vox.read_text(encoding="utf8")
     # Decompiled readContent() was a bytecode-comment dump. Reconstruct the
     # original JVM tableswitch and body instructions (verified with javap -c).
-    method = re.search(r"private static Object readContent\\([^)]*\\)\\s*\\{", source)
-    next_method = re.search(r"private static String readString\\(", source)
-    if not method or not next_method or method.start() >= next_method.start():
+    method_start = source.find("private static Object readContent(")
+    next_start = source.find("private static String readString(")
+    if method_start < 0 or next_start < 0 or method_start >= next_start:
         raise RuntimeError("Could not locate source-level VOX readContent/readString boundaries")
     java = """private static Object readContent(MagicaVox.Chunk parent, String id, InputBuffer buffer) {
       switch (id) {
@@ -76,7 +76,7 @@ def main():
    }
 
    """
-    source = source[:method.start()] + java + source[next_method.start():]
+    source = source[:method_start] + java + source[next_start:]
     vox.write_text(source, encoding="utf8")
     print("Reconstructed VOX chunk parser from original bytecode")
 
