@@ -38,6 +38,7 @@ jobs:
           mkdir -p build/tools
           curl -fLSs --retry 3 -o build/tools/vineflower.jar https://repo.maven.apache.org/maven2/org/vineflower/vineflower/1.12.0/vineflower-1.12.0.jar
           test -s build/tools/vineflower.jar
+          curl -fLSs --retry 3 -o build/tools/joml-1.10.5.jar https://repo.maven.apache.org/maven2/org/joml/joml/1.10.5/joml-1.10.5.jar
 
       - name: Reconstruct original Java files into disposable workspace
         run: |
@@ -51,9 +52,11 @@ jobs:
           set -euo pipefail
           mkdir -p build/compiled
           mapfile -d '' SOURCES < <(find build/decompiled/at/redi2go/photonics/client/magicavoxel -name '*.java' -print0)
-          echo "Reconstructed ${#SOURCES[@]} independent Java source files"
-          test ${#SOURCES[@]} -ge 5
-          javac --release 17 -encoding UTF-8 -d build/compiled "${SOURCES[@]}"
+          mapfile -d '' SCHEMATIC_SOURCES < <(find build/decompiled/at/redi2go/photonics/client/rendering/schematics -name '*.java' -print0)
+          SOURCES+=("${SCHEMATIC_SOURCES[@]}")
+          echo "Reconstructed ${#SOURCES[@]} independent Java source files including schematic dependency"
+          test ${#SOURCES[@]} -ge 8
+          javac --release 17 -encoding UTF-8 -cp build/tools/joml-1.10.5.jar -d build/compiled "${SOURCES[@]}"
           python - <<'PY'
           from pathlib import Path
           import struct
@@ -68,7 +71,7 @@ jobs:
       - name: Create separately labeled PARTIAL code artifact (NOT a Fabric mod)
         run: |
           mkdir -p build/output
-          echo "This JAR contains only recompiled MagicaVox helper classes from Photonics 0.3.4. It is NOT an installable Fabric mod and will NOT add ray tracing. This step demonstrates a genuine Java 21 to Java 17 source-level port for isolated components; Minecraft/Iris rendering code is still not ported." > build/compiled/DO-NOT-INSTALL-AS-MOD.txt
+          echo "This JAR contains only recompiled MagicaVox and Schematic helper classes from Photonics 0.3.4. It is NOT an installable Fabric mod and will NOT add ray tracing. This step demonstrates a genuine Java 21 to Java 17 source-level port for isolated components; Minecraft/Iris rendering code is still not ported." > build/compiled/DO-NOT-INSTALL-AS-MOD.txt
           (cd build/compiled && jar cf ../output/Photonics-0.3.4-MagicaVox-Java17-PARTIAL.jar .)
 
       - name: Upload partial code port
