@@ -15,3 +15,5 @@ The full port cannot be called working until its Java17 classes compile, mixins 
 The first Java17 source-recompilation probe exposed a missing link to the Schematic and JOML classes. The reconstruction workflow now includes those dependencies; its next CI run must verify compilation before any class file can be called successfully ported.
 
 Second compile probe also identified the standalone MultiThreader helper as a required source file. It was added to the Java17 reconstruction dependencies.
+
+The renderer-independent 0.3.4 port is now explicitly scoped to MagicaVox/InputBuffer/OutputBuffer classes, with a Java 17 round-trip byte-buffer smoke test; dependent rendering and config classes are excluded from this stage.
