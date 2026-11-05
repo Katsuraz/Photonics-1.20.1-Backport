@@ -54,6 +54,7 @@ jobs:
           mapfile -d '' SOURCES < <(find build/decompiled/at/redi2go/photonics/client/magicavoxel -name '*.java' -print0)
           mapfile -d '' SCHEMATIC_SOURCES < <(find build/decompiled/at/redi2go/photonics/client/rendering/schematics -name '*.java' -print0)
           SOURCES+=("${SCHEMATIC_SOURCES[@]}")
+          SOURCES+=(build/decompiled/at/redi2go/photonics/client/rendering/util/MultiThreader.java)
           echo "Reconstructed ${#SOURCES[@]} independent Java source files including schematic dependency"
           test ${#SOURCES[@]} -ge 8
           javac --release 17 -encoding UTF-8 -cp build/tools/joml-1.10.5.jar -d build/compiled "${SOURCES[@]}"
