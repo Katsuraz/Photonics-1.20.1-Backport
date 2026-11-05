@@ -76,6 +76,39 @@ jobs:
       - name: Build Fabric remapped JAR
         run: gradle --no-daemon --stacktrace build
 
+      - name: Validate original shader assets and mixin/refmap preservation
+        run: |
+          python - <<'PY'
+          import zipfile
+          old='build/original/Photonics-0.2.5.jar'
+          from pathlib import Path
+          built=list(Path('build/libs').glob('*.jar'))
+          assert built, 'No Fabric output JAR'
+          with zipfile.ZipFile(old) as a, zipfile.ZipFile(built[0]) as b:
+              preserved=[n for n in a.namelist() if n.startswith('assets/') or n.endswith('.mixins.json') or n.endswith('refmap.json') or n == 'Photonic-refmap.json']
+              assert len(preserved)>30
+              missing=[n for n in preserved if n not in b.namelist()]
+              changed=[n for n in preserved if n in b.namelist() and a.read(n)!=b.read(n)]
+              assert not missing and not changed, f'Original shader/mixin assets were modified or lost: missing={missing} changed={changed}'
+              print('Verified',len(preserved),'original graphics assets and mixin/refmap entries unchanged')
+          PY
+
+      - name: Run REAL Java 17 runtime smoke test
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Parse VOX binary using rebuilt JAR on Java 17
+        run: |
+          set -euo pipefail
+          mkdir -p build/java17-smoke
+          JAR=$(find build/libs -maxdepth 1 -name '*.jar' ! -name '*dev-unverified*' -print -quit)
+          test -n "$JAR"
+          java -version
+          javac --release 17 -cp "$JAR" -d build/java17-smoke tests/java/LegacyVoxSmoke.java
+          java -cp "$JAR:build/java17-smoke" LegacyVoxSmoke
+
       - name: Report successful source recompilation (NOT launch verified)
         run: |
           echo 'Java17 source rebuild passed. Runtime and shader integration testing are STILL REQUIRED.' >> "$GITHUB_STEP_SUMMARY"
