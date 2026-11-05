@@ -1,35 +1,49 @@
-# Photonics 0.3.4 → Minecraft 1.20.1 (research/backport)
+# Photonics → Minecraft Fabric 1.20.1 (Homestead)
 
-**Status: under development — there is NO installable Photonics port yet.**
+**Status: partial reconstruction only. A working Photonics 0.3.4 port does not exist yet.**
 
-Goal: reconstruct and adapt the original Photonics 0.3.4 Fabric client mod for **Minecraft 1.20.1**, **Iris 1.7.6**, and **Java 17**, without modifying the user's Homestead modpack, worlds, or existing dependency versions.
+Goal: run the newest Photonics raytracing system with **Minecraft 1.20.1, Iris 1.7.6**, and the current Homestead modpack **without replacing any installed Homestead mods, worlds, or configuration files**.
 
-## Rules
+## Verified deliverables (2026-11-05)
 
-- Work exclusively in a development environment, not the Homestead installation.
-- **Do not change Homestead's Iris, Sodium, Fabric API, configs, or other mods.**
-- Do not call an empty Fabric template, patched `fabric.mod.json`, or Java version-header rewrite a functional port.
-- A release is blocked until the real renderer is ported, integration mixins are verified, and a separate client smoke test succeeds.
+### Experimental compatibility JAR based on Photonics **0.2.5**
 
-## Why this requires source reconstruction
+[Verified packaging workflow](https://github.com/Katsuraz/Photonics-1.20.1-Backport/actions/runs/42022913946)
 
-The supplied `Photonics-0.3.4.jar` is built for Minecraft 1.21.11, Iris 1.10.5+, and Java 21. Its renderer and mixins reference APIs that do not exist in the 1.20.1 / Iris 1.7.6 environment. The JAR contains 186 classes and 41 mixin entries.
+- Download official Photonics 0.2.5 for 1.20.1 from Modrinth.
+- Patch its Fabric Iris dependency from `1.7.5+1.20.1` to `1.7.6+mc1.20.1`.
+- Preserve 110 compiled classes and all shader resources byte for byte.
+- **Classfile major version 65 requires Java 21 or newer.** This release does *not* contain Java17 bytecode despite Minecraft 1.20.1 traditionally using Java17.
+- **Not a port of 0.3.4. Not tested in Minecraft. Could still crash.**
+- Test only in a separate copy of Homestead. Do not overwrite the original.
 
-The developer's distributed mod lists **All Rights Reserved**. The user's supplied JAR is retained locally; this **public repository does not contain** the binary or extracted proprietary code/assets. The user reports having obtained porting permission.
+### Actual Photonics **0.3.4** Java17 source reconstruction (PARTIAL)
 
-## Current contents
+[Verified Java17 source port build](https://github.com/Katsuraz/Photonics-1.20.1-Backport/actions/runs/42024497794)
 
-- `tools/audit_photonics.py` — inspect classfile versions, version requirements, and mixin names; optionally compare against copies of target mod jars.
-- `tests/` — tests for the auditor.
-- `.github/workflows/audit.yml` — runs the auditor's tests and accepts optional reference JARs from a local checkout.
-- `PORTING.md` — concrete work outstanding.
+- Vineflower reconstructed 0.3.4 source from official JAR.
+- Recompiled `MagicaVox`, `InputBuffer`, `OutputBuffer`, `PBlockPos`, `PChunkPos`, and `LightNodePos`.
+- Verified **13 generated Java17 class files** (classfile major 61).
+- Both the voxel byte-buffer smoke test and world-coordinate arithmetic smoke test passed on Java17.
+- **This is a helper-library JAR, not an installable Fabric mod. It does not provide raytracing.**
 
-## Current stage
+## What remains
 
-1. ✅ Original binary analyzed.
-2. ✅ Dedicated GitHub project and repeatable compatibility audit setup.
-3. ☐ Compare against *exact* Homestead Sodium and Iris artifacts.
-4. ☐ Reconstruct and compile the actual Photonics renderer against Minecraft 1.20.1.
-5. ☐ Pass client launch, mixin, raytracing/shader, and world-render tests.
+The work that makes this difficult is rewriting the render pipeline, shader integration and Fabric mixins for Iris **1.7.6 / Sodium 0.5.x** instead of Iris 1.10 / Sodium 0.8, plus Minecraft 1.20.1 shader API differences. The newer version contains 186 compiled classes and 41 mixin entries. Java17 recompilation of isolated helper code does not resolve those incompatibilities.
 
-**There is intentionally no release/JAR download until it actually works.**
+Before releasing any playable 0.3.4 port:
+
+1. Reconstruct editable code and determine the exact target Homestead Sodium/Fabric versions.
+2. Rebuild/replace old Iris & Sodium access and integrate shader pipeline for Minecraft 1.20.1.
+3. Recompile all rendering/mixin dependencies.
+4. Confirm client launch and actual raytracing in a disposable Homestead copy.
+
+## Repo workflows
+
+- `audit.yml`: produces version and rendering-reference reports.
+- `experimental-iris176.yml`: creates the **untested 0.2.5** metadata-only compatibility candidate.
+- `partial-java17-port.yml`: produces the **non-installable 0.3.4** Java17 helper-code library and runs smoke tests.
+
+The repository does not commit the upstream ARR JAR or its reconstructed source. Reference files are downloaded only inside temporary GitHub Actions runners.
+
+**Do not install the Java17 partial-code artifact in Minecraft or confuse the experimental 0.2.5 metadata patch with a verified 0.3.4 backport.**
