@@ -17,3 +17,5 @@ The first Java17 source-recompilation probe exposed a missing link to the Schema
 Second compile probe also identified the standalone MultiThreader helper as a required source file. It was added to the Java17 reconstruction dependencies.
 
 The renderer-independent 0.3.4 port is now explicitly scoped to MagicaVox/InputBuffer/OutputBuffer classes, with a Java 17 round-trip byte-buffer smoke test; dependent rendering and config classes are excluded from this stage.
+
+Additional Java17 port candidate: 0.3.4's LightNodePos, PBlockPos and PChunkPos classes, recompiled against the 1.20.1-era JOML 1.10.5 API with arithmetic smoke tests.
