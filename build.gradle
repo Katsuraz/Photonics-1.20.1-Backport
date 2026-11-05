@@ -1,0 +1,47 @@
+plugins {
+    id 'fabric-loom' version '1.9-SNAPSHOT'
+    id 'maven-publish'
+}
+
+group = 'at.redi2go'
+version = '0.2.5+1.20.1-iris176-java17.rebuild'
+
+repositories {
+    mavenCentral()
+    maven { url 'https://maven.fabricmc.net/' }
+    maven { url 'https://maven.terraformersmc.com/releases/' }
+    exclusiveContent {
+        forRepository { maven { url 'https://api.modrinth.com/maven' } }
+        filter { includeGroup 'maven.modrinth' }
+    }
+}
+
+dependencies {
+    minecraft 'com.mojang:minecraft:1.20.1'
+    // Remap released intermediary bytecode to Yarn before decompiling.
+    mappings 'net.fabricmc:yarn:1.20.1+build.10:v2'
+    modImplementation 'net.fabricmc:fabric-loader:0.20.1'
+    modImplementation 'net.fabricmc.fabric-api:fabric-api:0.92.12+1.20.1'
+    modCompileOnly('maven.modrinth:YL57xq9U:s5eFLITc') { transitive = false }
+    modCompileOnly('maven.modrinth:AANobbMI:OihdIimA') { transitive = false }
+    modCompileOnly('com.terraformersmc:modmenu:7.2.2') { transitive = false }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release = 17
+    // Original 1.20.1 refmap is bundled from the reference release.
+    // Vineflower-produced Mixin annotation strings do not always survive mapping;
+    // skip compile-time AP regeneration, not runtime Mixin application.
+    options.compilerArgs.add('-proc:none')
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
+tasks.named('jar', Jar) {
+    // This is development-only, not considered working until runtime tested.
+    archiveClassifier = 'dev-unverified'
+}
