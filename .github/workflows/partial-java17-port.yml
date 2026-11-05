@@ -1,0 +1,77 @@
+name: Recompile independent 0.3.4 classes for Java 17 (PARTIAL PORT)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/partial-java17-port.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  port-independent-classes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tooling
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download official Photonics 0.3.4 for 1.21.11
+        run: |
+          python tools/fetch_reference.py --version '0.3.4+1.21.11' --minecraft '1.21.11' --output build/reference/Photonics-0.3.4.jar
+
+      - name: Download Vineflower 1.12.0 decompiler
+        run: |
+          mkdir -p build/tools
+          curl -fLSs --retry 3 -o build/tools/vineflower.jar https://repo.maven.apache.org/maven2/org/vineflower/vineflower/1.12.0/vineflower-1.12.0.jar
+          test -s build/tools/vineflower.jar
+
+      - name: Reconstruct original Java files into disposable workspace
+        run: |
+          mkdir -p build/decompiled
+          java -Xmx2G -jar build/tools/vineflower.jar --folder build/reference/Photonics-0.3.4.jar build/decompiled > build/vineflower.log 2>&1
+          find build/decompiled -type f -name 'MagicaVox.java' -print
+
+      - name: Compile independent MagicaVoxel parser for Java 17
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/compiled
+          mapfile -d '' SOURCES < <(find build/decompiled/at/redi2go/photonics/client/magicavoxel -name '*.java' -print0)
+          echo "Reconstructed ${#SOURCES[@]} independent Java source files"
+          test ${#SOURCES[@]} -ge 5
+          javac --release 17 -encoding UTF-8 -d build/compiled "${SOURCES[@]}"
+          python - <<'PY'
+          from pathlib import Path
+          import struct
+          classes = list(Path('build/compiled').rglob('*.class'))
+          assert len(classes) >= 10, f'Expected parser bytecode, got {len(classes)} classes'
+          for path in classes:
+              major = struct.unpack('>H', path.read_bytes()[6:8])[0]
+              assert major == 61, f'{path}: expected Java 17 classfile 61, found {major}'
+          print('Verified', len(classes), 'ported Java 17 class files')
+          PY
+
+      - name: Create separately labeled PARTIAL code artifact (NOT a Fabric mod)
+        run: |
+          mkdir -p build/output
+          echo "This JAR contains only recompiled MagicaVox helper classes from Photonics 0.3.4. It is NOT an installable Fabric mod and will NOT add ray tracing. This step demonstrates a genuine Java 21 to Java 17 source-level port for isolated components; Minecraft/Iris rendering code is still not ported." > build/compiled/DO-NOT-INSTALL-AS-MOD.txt
+          (cd build/compiled && jar cf ../output/Photonics-0.3.4-MagicaVox-Java17-PARTIAL.jar .)
+
+      - name: Upload partial code port
+        uses: actions/upload-artifact@v4
+        with:
+          name: Photonics-0.3.4-Java17-Independent-Classes-PARTIAL-NOT-MOD
+          path: build/output/Photonics-0.3.4-MagicaVox-Java17-PARTIAL.jar
+          retention-days: 7
