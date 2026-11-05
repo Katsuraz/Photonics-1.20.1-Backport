@@ -30,6 +30,10 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
     options.release = 17
+    // Original 1.20.1 refmap is bundled from the reference release.
+    // Vineflower-produced Mixin annotation strings do not always survive mapping;
+    // skip compile-time AP regeneration, not runtime Mixin application.
+    options.compilerArgs.add('-proc:none')
 }
 
 java {
