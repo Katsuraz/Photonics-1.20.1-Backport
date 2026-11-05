@@ -6,6 +6,8 @@ on:
       - '.github/workflows/experimental-iris176.yml'
       - 'tools/patch_legacy_iris.py'
       - 'tools/fetch_reference.py'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
