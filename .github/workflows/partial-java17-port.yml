@@ -66,6 +66,12 @@ jobs:
           print('Verified', len(classes), 'ported Java 17 class files')
           PY
 
+      - name: Run actual Java 17 voxel buffer runtime smoke test
+        run: |
+          javac --release 17 -cp build/compiled -d build/compiled tests/java/MagicaVoxSmoke.java
+          java -cp build/compiled MagicaVoxSmoke
+          rm -f build/compiled/MagicaVoxSmoke.class
+
       - name: Create separately labeled PARTIAL code artifact (NOT a Fabric mod)
         run: |
           mkdir -p build/output
