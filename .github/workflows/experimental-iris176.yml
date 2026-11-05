@@ -1,0 +1,59 @@
+name: Experimental Iris 1.7.6 compatibility JAR (NOT 0.3.4)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-legacy:
+    name: Package an untested 0.2.5 compatibility candidate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out project
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download official Minecraft 1.20.1 Photonics 0.2.5
+        run: |
+          python tools/fetch_reference.py --version '0.2.5' --minecraft '1.20.1' --output build/ref/Photonics-0.2.5.jar
+
+      - name: Inspect unmodified release
+        run: |
+          python tools/inspect_compatibility.py build/ref/Photonics-0.2.5.jar --output build/reports/original.json
+
+      - name: Change only the Iris dependency requirement
+        run: |
+          python tools/patch_legacy_iris.py build/ref/Photonics-0.2.5.jar build/output/Photonics-0.2.5-Iris-1.7.6-EXPERIMENTAL.jar
+
+      - name: Verify no original class files or shader resources changed
+        run: |
+          python - <<'PY'
+          import json, zipfile, hashlib
+          a='build/ref/Photonics-0.2.5.jar'
+          b='build/output/Photonics-0.2.5-Iris-1.7.6-EXPERIMENTAL.jar'
+          with zipfile.ZipFile(a) as old, zipfile.ZipFile(b) as new:
+              assert old.testzip() is None and new.testzip() is None
+              old_names=set(old.namelist())
+              changed={n for n in old_names if old.read(n)!=new.read(n)}
+              assert changed == {'fabric.mod.json'}, f'Unexpected modified files: {changed}'
+              add=set(new.namelist())-old_names
+              assert add=={'META-INF/PHOTONICS-EXPERIMENTAL-COMPATIBILITY.txt'}
+              metadata=json.loads(new.read('fabric.mod.json'))
+              assert metadata['depends']['iris']=='1.7.6+mc1.20.1'
+              assert '1.20.1' in metadata['depends']['minecraft']
+              print('Verified: original binary classes/assets unchanged; Iris metadata only')
+              print('Original Java dependency remains:', metadata['depends'].get('java'))
+          PY
+
+      - name: Upload clearly marked untested candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: Photonics-0.2.5-Iris176-EXPERIMENTAL-NOT-0.3.4
+          path: build/output/Photonics-0.2.5-Iris-1.7.6-EXPERIMENTAL.jar
+          if-no-files-found: error
+          retention-days: 7
