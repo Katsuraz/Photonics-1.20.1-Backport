@@ -20,26 +20,65 @@ def replace_once(path: Path, before: str, after: str):
 def main():
     root = Path("src/main/java/at/redi2go/photonic/client")
     vox = root / "magicavoxel/VoxReader.java"
-    text = vox.read_text(encoding="utf8")
-    signature = "private static String readString(InputBuffer buffer, int length)"
-    if text.count(signature) != 1:
-        raise RuntimeError("Expected exactly one VoxReader::readString")
-    opening = text.index("{", text.index(signature))
-    depth = 0
-    closing = None
-    for index in range(opening, len(text)):
-        if text[index] == "{":
-            depth += 1
-        elif text[index] == "}":
-            depth -= 1
-            if depth == 0:
-                closing = index
-                break
-    if closing is None or "byte[] content = new byte[length]" not in text[opening:closing]:
-        raise RuntimeError("VoxReader readString body did not match byte-buffer parser")
-    text = text[:closing] + ("      return new String(content, java.nio.charset.StandardCharsets.UTF_8);" + chr(10) + "   ") + text[closing:]
-    vox.write_text(text, encoding="utf8")
-    print("Fixed missing UTF-8 VOX string return")
+    source = vox.read_text(encoding="utf8")
+    # Decompiled readContent() was a bytecode-comment dump. Reconstruct the
+    # original JVM tableswitch and body instructions (verified with javap -c).
+    method = re.search(r"private static Object readContent\\([^)]*\\)\\s*\\{", source)
+    next_method = re.search(r"private static String readString\\(", source)
+    if not method or not next_method or method.start() >= next_method.start():
+        raise RuntimeError("Could not locate source-level VOX readContent/readString boundaries")
+    java = """private static Object readContent(MagicaVox.Chunk parent, String id, InputBuffer buffer) {
+      switch (id) {
+         case "MAIN":
+            return "MAIN";
+         case "SIZE": {
+            MagicaVox.Size size = new MagicaVox.Size();
+            size.width = buffer.getInt();
+            size.depth = buffer.getInt();
+            size.height = buffer.getInt();
+            return size;
+         }
+         case "XYZI": {
+            MagicaVox.Voxels voxels = new MagicaVox.Voxels();
+            java.util.List<?> sizes = (java.util.List<?>) parent.children.get(MagicaVox.Size.class);
+            MagicaVox.Chunk sizeChunk = (MagicaVox.Chunk) sizes.get(0);
+            voxels.size = (MagicaVox.Size) sizeChunk.content;
+            voxels.voxels = new byte[voxels.size.width * voxels.size.height * voxels.size.depth];
+            int count = buffer.getInt();
+            for (int i = 0; i < count; i++) {
+               byte x = buffer.get();
+               byte y = buffer.get();
+               byte z = buffer.get();
+               byte index = (byte) (buffer.get() & 255);
+               voxels.set(x, z, y, index);
+            }
+            if (buffer.isAvailable()) throw new IllegalStateException("Unread VOX voxel data");
+            return voxels;
+         }
+         case "RGBA": {
+            MagicaVox.Palette palette = new MagicaVox.Palette();
+            palette.colors = new int[buffer.available() >> 2];
+            buffer.getInt(palette.colors);
+            return palette;
+         }
+         case "nTRN":
+         case "nGRP":
+         case "nSHP":
+         case "LAYR":
+         case "MATL":
+         case "rOBJ":
+         case "rCAM":
+         case "NOTE":
+            return null;
+         default:
+            throw new IllegalStateException("Unsupported VOX chunk type: " + id);
+      }
+   }
+
+   """
+    source = source[:method.start()] + java + source[next_method.start():]
+    vox.write_text(source, encoding="utf8")
+    print("Reconstructed VOX chunk parser from original bytecode")
 
     ray = root / "Raytracer.java"
     replace_once(ray, "throw new RuntimeException(ex);", "throw new RuntimeException(e);")
