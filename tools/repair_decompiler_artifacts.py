@@ -37,9 +37,7 @@ def main():
                 break
     if closing is None or "byte[] content = new byte[length]" not in text[opening:closing]:
         raise RuntimeError("VoxReader readString body did not match byte-buffer parser")
-    text = text[:closing] + (
-        "      return new String(content, java.nio.charset.StandardCharsets.UTF_8);\\n   "
-    ) + text[closing:]
+    text = text[:closing] + ("      return new String(content, java.nio.charset.StandardCharsets.UTF_8);" + chr(10) + "   ") + text[closing:]
     vox.write_text(text, encoding="utf8")
     print("Fixed missing UTF-8 VOX string return")
 
