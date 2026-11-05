@@ -1,7 +1,7 @@
 name: Recompile real Photonics 0.2.5 source on Java17 (investigation)
 on:
   push:
-    branches: [dev/java17-legacy-rebuild]
+    branches: [dev/java17-legacy-rebuild, fix/legacy-java17-mixin-shadow-regression]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -109,6 +109,16 @@ jobs:
           javac --release 17 -cp "$JAR" -d build/java17-smoke tests/java/LegacyVoxSmoke.java
           java -cp "$JAR:build/java17-smoke" LegacyVoxSmoke
 
+      - name: Restore intermediary @Shadow field names lost in the source rebuild
+        run: |
+          set -euo pipefail
+          JAR=$(find build/libs -maxdepth 1 -name '*.jar' -print -quit)
+          test -n "$JAR"
+          python tools/patch_shadow_fields.py "$JAR" build/output/Photonics-0.2.5-Java17-Iris176-SHADOW-FIX1-UNTESTED.jar
+          javap -p -classpath build/output/Photonics-0.2.5-Java17-Iris176-SHADOW-FIX1-UNTESTED.jar at.redi2go.photonic.client.mixin.ModelElementMixin | grep -q 'field_4230'
+          javap -p -classpath build/output/Photonics-0.2.5-Java17-Iris176-SHADOW-FIX1-UNTESTED.jar at.redi2go.photonic.client.mixin.WorldRendererMixin | grep -q 'field_4085'
+          echo 'Verified repaired @Shadow fields: ModelElementMixin.field_4230 and WorldRendererMixin.field_4085' >> "$GITHUB_STEP_SUMMARY"
+
       - name: Report successful source recompilation (NOT launch verified)
         run: |
           echo 'Java17 source rebuild passed. Runtime and shader integration testing are STILL REQUIRED.' >> "$GITHUB_STEP_SUMMARY"
@@ -118,6 +128,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Photonics-0.2.5-Java17-Iris176-SOURCE-REBUILD-UNTESTED
-          path: build/libs/*.jar
+          name: Photonics-0.2.5-Java17-Iris176-SHADOW-FIX1-UNTESTED
+          path: build/output/Photonics-0.2.5-Java17-Iris176-SHADOW-FIX1-UNTESTED.jar
           retention-days: 7
