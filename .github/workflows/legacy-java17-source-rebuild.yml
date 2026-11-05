@@ -48,6 +48,7 @@ jobs:
           java -Xmx3G -jar build/tools/tiny-remapper.jar build/original/Photonics-0.2.5.jar build/named/Photonics-0.2.5-named.jar build/tools/yarn.tiny intermediary named
           java -Xmx3G -jar build/tools/vineflower.jar build/named/Photonics-0.2.5-named.jar build/decompiled > build/decompile.log 2>&1
           python tools/prepare_legacy_source.py build/original/Photonics-0.2.5.jar build/decompiled .
+          python tools/fix_intermediary_member_names.py build/tools/yarn.tiny src/main/java --report build/mapping-repair.json
 
       - name: Compile all reconstructed Java code for Java17 against 1.20.1 + Iris 1.7.6 + Sodium 0.5.13
         run: |
