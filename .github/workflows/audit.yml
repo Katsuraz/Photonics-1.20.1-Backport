@@ -1,0 +1,45 @@
+name: Reference binary audit (NOT a playable port)
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out backport workspace
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Unit tests (synthetic JVM binaries)
+        run: python -m unittest discover -s tests -v
+
+      - name: Download official Photonics 0.2.5 reference for MC 1.20.1
+        run: |
+          python tools/fetch_reference.py --version '0.2.5' --minecraft '1.20.1' --output build/reference/Photonics-0.2.5-1.20.1.jar
+
+      - name: Download official Photonics 0.3.4 reference for MC 1.21.11
+        run: |
+          python tools/fetch_reference.py --version '0.3.4+1.21.11' --minecraft '1.21.11' --output build/reference/Photonics-0.3.4-1.21.11.jar
+
+      - name: Analyze Java/Render/Iris/Sodium references
+        run: |
+          python tools/inspect_compatibility.py build/reference/Photonics-0.2.5-1.20.1.jar --output build/reports/legacy.json
+          python tools/inspect_compatibility.py build/reference/Photonics-0.3.4-1.21.11.jar --output build/reports/new.json
+          python tools/compare_references.py build/reports/legacy.json build/reports/new.json --output build/reports/compatibility_delta.json
+
+      - name: Upload metadata-only compatibility reports (no JARs)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: photonics-reference-audits
+          path: build/reports/*.json
+          if-no-files-found: warn
