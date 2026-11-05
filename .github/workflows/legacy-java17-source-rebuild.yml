@@ -2,6 +2,8 @@ name: Recompile real Photonics 0.2.5 source on Java17 (investigation)
 on:
   push:
     branches: [dev/java17-legacy-rebuild]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
