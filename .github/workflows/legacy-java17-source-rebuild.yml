@@ -1,0 +1,67 @@
+name: Recompile real Photonics 0.2.5 source on Java17 (investigation)
+on:
+  push:
+    branches: [dev/java17-legacy-rebuild]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  java17-source-rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out separate dev branch
+        uses: actions/checkout@v4
+
+      - name: Set up build JDK 21 (javac compiles --release 17)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.10.2
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Download official legacy binary
+        run: |
+          python tools/fetch_reference.py --version '0.2.5' --minecraft '1.20.1' --output build/original/Photonics-0.2.5.jar
+
+      - name: Download and run Vineflower decompiler
+        run: |
+          mkdir -p build/tools build/decompiled
+          curl -fLSs --retry 3 -o build/tools/vineflower.jar https://repo.maven.apache.org/maven2/org/vineflower/vineflower/1.12.0/vineflower-1.12.0.jar
+          java -Xmx3G -jar build/tools/vineflower.jar build/original/Photonics-0.2.5.jar build/decompiled > build/decompile.log 2>&1
+          python tools/prepare_legacy_source.py build/original/Photonics-0.2.5.jar build/decompiled .
+
+      - name: Compile all reconstructed Java code for Java17 against 1.20.1 + Iris 1.7.6 + Sodium 0.5.13
+        run: |
+          gradle --no-daemon --stacktrace compileJava
+
+      - name: Verify every class targets Java17
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import struct
+          classes = list(Path('build/classes/java/main').rglob('*.class'))
+          assert len(classes) >= 50, f'Expected a real class rebuild, got {len(classes)} files'
+          majors = {struct.unpack('>H', p.read_bytes()[6:8])[0] for p in classes}
+          assert majors == {61}, f'Unexpected bytecode versions: {majors}'
+          print(f'Passed: {len(classes)} reconstructed Photonics classes compiled for Java17')
+          PY
+
+      - name: Build Fabric remapped JAR
+        run: gradle --no-daemon --stacktrace build
+
+      - name: Report successful source recompilation (NOT launch verified)
+        run: |
+          echo 'Java17 source rebuild passed. Runtime and shader integration testing are STILL REQUIRED.' >> "$GITHUB_STEP_SUMMARY"
+          ls -lh build/libs/
