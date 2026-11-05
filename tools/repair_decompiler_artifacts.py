@@ -21,18 +21,25 @@ def main():
     root = Path("src/main/java/at/redi2go/photonic/client")
     vox = root / "magicavoxel/VoxReader.java"
     text = vox.read_text(encoding="utf8")
-    match = re.search(
-        r'(private static String readString\(InputBuffer buffer, int length\)\s*\{'
-        r'\s*byte\[\] content = new byte\[length\];'
-        r'\s*for \(int i = 0; i < content\.length; i\+\+\)\s*\{'
-        r'\s*content\[i\] = buffer\.get\(\);\s*\}\s*)(\})',
-        text
-    )
-    if not match or text.count("private static String readString(") != 1:
-        raise RuntimeError("VoxReader::readString did not match known missing-return decompiler defect")
-    text = text[:match.start(2)] + (
-        'return new String(content, java.nio.charset.StandardCharsets.UTF_8);\n   '
-    ) + text[match.start(2):]
+    signature = "private static String readString(InputBuffer buffer, int length)"
+    if text.count(signature) != 1:
+        raise RuntimeError("Expected exactly one VoxReader::readString")
+    opening = text.index("{", text.index(signature))
+    depth = 0
+    closing = None
+    for index in range(opening, len(text)):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+            if depth == 0:
+                closing = index
+                break
+    if closing is None or "byte[] content = new byte[length]" not in text[opening:closing]:
+        raise RuntimeError("VoxReader readString body did not match byte-buffer parser")
+    text = text[:closing] + (
+        "      return new String(content, java.nio.charset.StandardCharsets.UTF_8);\\n   "
+    ) + text[closing:]
     vox.write_text(text, encoding="utf8")
     print("Fixed missing UTF-8 VOX string return")
 
