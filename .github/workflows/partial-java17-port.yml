@@ -54,12 +54,15 @@ jobs:
           SOURCE_ROOT=build/decompiled/at/redi2go/photonics/client/magicavoxel
           SOURCES=("$SOURCE_ROOT/MagicaVox.java" "$SOURCE_ROOT/InputBuffer.java" "$SOURCE_ROOT/OutputBuffer.java")
           echo "Reconstructing 3 standalone Java sources (no Minecraft/Iris/config dependencies)"
-          javac --release 17 -encoding UTF-8 -d build/compiled "${SOURCES[@]}"
+          SOURCES+=(build/decompiled/at/redi2go/photonics/client/rendering/world/position/LightNodePos.java)
+          SOURCES+=(build/decompiled/at/redi2go/photonics/client/rendering/world/position/PBlockPos.java)
+          SOURCES+=(build/decompiled/at/redi2go/photonics/client/rendering/world/position/PChunkPos.java)
+          javac --release 17 -encoding UTF-8 -cp build/tools/joml-1.10.5.jar -d build/compiled "${SOURCES[@]}"
           python - <<'PY'
           from pathlib import Path
           import struct
           classes = list(Path('build/compiled').rglob('*.class'))
-          assert len(classes) >= 9, f'Expected parser bytecode, got {len(classes)} classes'
+          assert len(classes) >= 13, f'Expected parser bytecode, got {len(classes)} classes'
           for path in classes:
               major = struct.unpack('>H', path.read_bytes()[6:8])[0]
               assert major == 61, f'{path}: expected Java 17 classfile 61, found {major}'
@@ -70,12 +73,14 @@ jobs:
         run: |
           javac --release 17 -cp build/compiled -d build/compiled tests/java/MagicaVoxSmoke.java
           java -cp build/compiled MagicaVoxSmoke
-          rm -f build/compiled/MagicaVoxSmoke.class
+          javac --release 17 -cp build/compiled:build/tools/joml-1.10.5.jar -d build/compiled tests/java/WorldPositionSmoke.java
+          java -cp build/compiled:build/tools/joml-1.10.5.jar WorldPositionSmoke
+          rm -f build/compiled/MagicaVoxSmoke.class build/compiled/WorldPositionSmoke.class
 
       - name: Create separately labeled PARTIAL code artifact (NOT a Fabric mod)
         run: |
           mkdir -p build/output
-          echo "This JAR contains only recompiled MagicaVox/InputBuffer/OutputBuffer helpers from Photonics 0.3.4. It is NOT an installable Fabric mod and will NOT add ray tracing. This step demonstrates a genuine Java 21 to Java 17 source-level port for isolated components; Minecraft/Iris rendering code is still not ported." > build/compiled/DO-NOT-INSTALL-AS-MOD.txt
+          echo "This JAR contains only recompiled MagicaVox and world-position helpers from Photonics 0.3.4. It is NOT an installable Fabric mod and will NOT add ray tracing. This step demonstrates a genuine Java 21 to Java 17 source-level port for isolated components; Minecraft/Iris rendering code is still not ported." > build/compiled/DO-NOT-INSTALL-AS-MOD.txt
           (cd build/compiled && jar cf ../output/Photonics-0.3.4-MagicaVox-Java17-PARTIAL.jar .)
 
       - name: Upload partial code port
