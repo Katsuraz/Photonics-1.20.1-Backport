@@ -49,6 +49,7 @@ jobs:
           java -Xmx3G -jar build/tools/vineflower.jar build/named/Photonics-0.2.5-named.jar build/decompiled > build/decompile.log 2>&1
           python tools/prepare_legacy_source.py build/original/Photonics-0.2.5.jar build/decompiled .
           python tools/fix_intermediary_member_names.py build/tools/yarn.tiny src/main/java --report build/mapping-repair.json
+          python tools/repair_decompiler_artifacts.py
 
       - name: Inspect three decompiler artifacts before patching
         run: |
@@ -79,3 +80,11 @@ jobs:
         run: |
           echo 'Java17 source rebuild passed. Runtime and shader integration testing are STILL REQUIRED.' >> "$GITHUB_STEP_SUMMARY"
           ls -lh build/libs/
+
+      - name: Upload UNTESTED rebuilt Java17 Photonics 0.2.5 binary
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Photonics-0.2.5-Java17-Iris176-SOURCE-REBUILD-UNTESTED
+          path: build/libs/*.jar
+          retention-days: 7
